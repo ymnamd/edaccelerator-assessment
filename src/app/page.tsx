@@ -1,65 +1,198 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useRef } from "react";
+import { passageData, getParagraphs } from "@/data/passage";
+import { ChevronDown, ChevronUp, BookOpen } from "lucide-react";
+import { ReadingCard, ProgressIndicator, QuestionBox } from "@/components";
 
 export default function Home() {
+  const paragraphs = getParagraphs(passageData);
+  const [currentParagraph, setCurrentParagraph] = useState(0);
+  const paragraphRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  const scrollToParagraph = (index: number) => {
+    setCurrentParagraph(index);
+    paragraphRefs.current[index]?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  };
+
+  const handleNext = () => {
+    if (currentParagraph < paragraphs.length - 1) {
+      scrollToParagraph(currentParagraph + 1);
+    }
+  };
+
+  const handleBack = () => {
+    if (currentParagraph > 0) {
+      scrollToParagraph(currentParagraph - 1);
+    }
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="relative min-h-screen bg-stone-50">
+      {/* Header */}
+      <header className="sticky top-0 z-10 border-b border-stone-200 bg-white/90 backdrop-blur-sm">
+        <div className="mx-auto max-w-4xl px-6 py-6">
+          <div className="flex items-center justify-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-500">
+              <BookOpen className="h-6 w-6 text-white" strokeWidth={2} />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-800 sm:text-3xl">
+              {passageData.title}
+            </h1>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </header>
+
+      {/* Main Content */}
+      <main className="mx-auto max-w-4xl px-6 py-12 lg:px-12">
+        <div className="space-y-16">
+          {paragraphs.map((paragraph, index) => (
+            <div key={index}>
+              <ReadingCard
+                ref={(el) => {
+                  paragraphRefs.current[index] = el;
+                }}
+                paragraph={paragraph}
+                sectionNumber={index + 1}
+                isActive={currentParagraph === index}
+              />
+
+              {/* Show QuestionBox only for current section */}
+              {currentParagraph === index && (
+                <div className="mt-8">
+                  <QuestionBox />
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       </main>
+
+      {/* Fixed Right Sidebar Navigation - Desktop Only */}
+      <aside className="fixed right-6 top-1/2 z-20 -translate-y-1/2 hidden lg:block">
+        <div className="flex flex-col items-center space-y-4">
+          {/* Up Button */}
+          <button
+            onClick={handleBack}
+            disabled={currentParagraph === 0}
+            className={`group flex h-12 w-12 items-center justify-center rounded-full shadow-lg transition-all duration-200 ${
+              currentParagraph === 0
+                ? "cursor-not-allowed bg-stone-200"
+                : "bg-white hover:scale-110 hover:bg-blue-600 hover:shadow-xl"
+            }`}
+            aria-label="Previous section"
+          >
+            <ChevronUp
+              className={`h-6 w-6 transition-colors ${
+                currentParagraph === 0
+                  ? "text-stone-400"
+                  : "text-gray-800 group-hover:text-white"
+              }`}
+              strokeWidth={2.5}
+            />
+          </button>
+
+          {/* Progress Indicators */}
+          <div className="flex flex-col items-center space-y-3 py-2">
+            {paragraphs.map((_, index) => (
+              <button
+                key={index}
+                onClick={() => scrollToParagraph(index)}
+                className="group relative flex items-center"
+                aria-label={`Go to section ${index + 1}`}
+              >
+                {/* Dot */}
+                <div
+                  className={`h-3 w-3 rounded-full transition-all duration-300 ${
+                    index === currentParagraph
+                      ? "scale-150 bg-blue-600"
+                      : index < currentParagraph
+                      ? "bg-green-500"
+                      : "bg-stone-300"
+                  }`}
+                />
+                {/* Label on hover */}
+                <div className="pointer-events-none absolute right-5 whitespace-nowrap rounded-lg bg-gray-800 px-3 py-1.5 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+                  Section {index + 1}
+                  <div className="absolute right-0 top-1/2 h-2 w-2 -translate-y-1/2 translate-x-1/2 rotate-45 bg-gray-800" />
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {/* Down Button */}
+          <button
+            onClick={handleNext}
+            disabled={currentParagraph === paragraphs.length - 1}
+            className={`group flex h-12 w-12 items-center justify-center rounded-full shadow-lg transition-all duration-200 ${
+              currentParagraph === paragraphs.length - 1
+                ? "cursor-not-allowed bg-stone-200"
+                : "bg-white hover:scale-110 hover:bg-blue-600 hover:shadow-xl"
+            }`}
+            aria-label="Next section"
+          >
+            <ChevronDown
+              className={`h-6 w-6 transition-colors ${
+                currentParagraph === paragraphs.length - 1
+                  ? "text-stone-400"
+                  : "text-gray-800 group-hover:text-white"
+              }`}
+              strokeWidth={2.5}
+            />
+          </button>
+        </div>
+      </aside>
+
+      {/* Mobile Navigation */}
+      <div className="fixed bottom-6 left-1/2 z-20 flex -translate-x-1/2 items-center gap-4 lg:hidden">
+        <button
+          onClick={handleBack}
+          disabled={currentParagraph === 0}
+          className={`flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-all duration-200 ${
+            currentParagraph === 0
+              ? "cursor-not-allowed bg-stone-200"
+              : "bg-white hover:scale-110 hover:bg-blue-600"
+          }`}
+          aria-label="Previous section"
+        >
+          <ChevronUp
+            className={`h-7 w-7 ${
+              currentParagraph === 0
+                ? "text-stone-400"
+                : "text-gray-800"
+            }`}
+            strokeWidth={2.5}
+          />
+        </button>
+
+        <ProgressIndicator
+          current={currentParagraph + 1}
+          total={paragraphs.length}
+        />
+
+        <button
+          onClick={handleNext}
+          disabled={currentParagraph === paragraphs.length - 1}
+          className={`flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-all duration-200 ${
+            currentParagraph === paragraphs.length - 1
+              ? "cursor-not-allowed bg-stone-200"
+              : "bg-white hover:scale-110 hover:bg-blue-600"
+          }`}
+          aria-label="Next section"
+        >
+          <ChevronDown
+            className={`h-7 w-7 ${
+              currentParagraph === paragraphs.length - 1
+                ? "text-stone-400"
+                : "text-gray-800"
+            }`}
+            strokeWidth={2.5}
+          />
+        </button>
+      </div>
     </div>
   );
 }
