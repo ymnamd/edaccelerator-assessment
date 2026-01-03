@@ -8,6 +8,7 @@ import {
   ProgressIndicator,
   QuestionBox,
   PassageModal,
+  CompletionScreen,
 } from "@/components";
 
 export default function Home() {
@@ -16,12 +17,59 @@ export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const paragraphRefs = useRef<(HTMLDivElement | null)[]>([]);
 
+  // Track which sections have been answered and score
+  const [answeredSections, setAnsweredSections] = useState<Set<number>>(new Set());
+  const [correctAnswers, setCorrectAnswers] = useState(0);
+  const [showCompletion, setShowCompletion] = useState(false);
+
+  // Cache generated questions to avoid regenerating on navigation
+  const [cachedQuestions, setCachedQuestions] = useState<Map<number, string>>(
+    new Map()
+  );
+
+  // Cache answers and evaluations per section
+  const [cachedAnswers, setCachedAnswers] = useState<
+    Map<number, { answer: string; evaluation: { correct: boolean; explanation: string } }>
+  >(new Map());
+
   const scrollToParagraph = (index: number) => {
     setCurrentParagraph(index);
     paragraphRefs.current[index]?.scrollIntoView({
       behavior: "smooth",
       block: "center",
     });
+  };
+
+  const handleQuestionGenerated = (sectionIndex: number, question: string) => {
+    // Cache the generated question for this section
+    setCachedQuestions((prev) => new Map(prev).set(sectionIndex, question));
+  };
+
+  const handleQuestionAnswered = (
+    sectionIndex: number,
+    isCorrect: boolean,
+    answer: string,
+    evaluation: { correct: boolean; explanation: string }
+  ) => {
+    // Mark section as answered
+    const newAnsweredSections = new Set(answeredSections).add(sectionIndex);
+    setAnsweredSections(newAnsweredSections);
+
+    // Update score if correct (only once per section)
+    if (isCorrect && !answeredSections.has(sectionIndex)) {
+      setCorrectAnswers((prev) => prev + 1);
+    }
+
+    // Cache the answer and evaluation
+    setCachedAnswers((prev) => new Map(prev).set(sectionIndex, { answer, evaluation }));
+
+    // Check if this was the last section
+    if (sectionIndex === paragraphs.length - 1) {
+      // Show completion screen after a brief delay
+      setTimeout(() => {
+        setShowCompletion(true);
+      }, 800);
+    }
   };
 
   const handleNext = () => {
@@ -35,6 +83,21 @@ export default function Home() {
       scrollToParagraph(currentParagraph - 1);
     }
   };
+
+  const handleRestart = () => {
+    // Reset all state
+    setCurrentParagraph(0);
+    setAnsweredSections(new Set());
+    setCorrectAnswers(0);
+    setShowCompletion(false);
+    setCachedQuestions(new Map());
+    setCachedAnswers(new Map());
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // Check if current section is answered
+  const currentSectionAnswered = answeredSections.has(currentParagraph);
 
   return (
     <div className="relative min-h-screen bg-stone-50">
@@ -92,32 +155,50 @@ export default function Home() {
 
       {/* Main Content */}
       <main className="mx-auto max-w-4xl px-6 py-12 lg:px-12">
-        <div className="space-y-16">
-          {paragraphs.map((paragraph, index) => (
-            <div key={index}>
-              <ReadingCard
-                ref={(el) => {
-                  paragraphRefs.current[index] = el;
-                }}
-                paragraph={paragraph}
-                sectionNumber={index + 1}
-                isActive={currentParagraph === index}
-              />
+        {showCompletion ? (
+          <CompletionScreen
+            correctAnswers={correctAnswers}
+            totalQuestions={paragraphs.length}
+            onRestart={handleRestart}
+          />
+        ) : (
+          <div className="space-y-16">
+            {paragraphs.map((paragraph, index) => (
+              <div key={index}>
+                <ReadingCard
+                  ref={(el) => {
+                    paragraphRefs.current[index] = el;
+                  }}
+                  paragraph={paragraph}
+                  sectionNumber={index + 1}
+                  isActive={currentParagraph === index}
+                />
 
-              {/* Show QuestionBox only for current section */}
-              {currentParagraph === index && (
-                <div className="mt-8">
-                  <QuestionBox
-                    paragraph={paragraph}
-                    fullPassage={passageData.content}
-                    passageTitle={passageData.title}
-                    sectionNumber={index + 1}
-                  />
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+                {/* Show QuestionBox only for current section */}
+                {currentParagraph === index && (
+                  <div className="mt-8">
+                    <QuestionBox
+                      paragraph={paragraph}
+                      fullPassage={passageData.content}
+                      passageTitle={passageData.title}
+                      sectionNumber={index + 1}
+                      cachedQuestion={cachedQuestions.get(index)}
+                      cachedAnswerData={cachedAnswers.get(index)}
+                      isLastSection={index === paragraphs.length - 1}
+                      onQuestionGenerated={(question) =>
+                        handleQuestionGenerated(index, question)
+                      }
+                      onAnswered={(isCorrect, answer, evaluation) =>
+                        handleQuestionAnswered(index, isCorrect, answer, evaluation)
+                      }
+                      onNext={handleNext}
+                    />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </main>
 
       {/* Fixed Right Sidebar Navigation - Desktop Only */}
@@ -158,7 +239,7 @@ export default function Home() {
                   className={`h-3 w-3 rounded-full transition-all duration-300 ${
                     index === currentParagraph
                       ? "scale-150 bg-blue-600"
-                      : index < currentParagraph
+                      : answeredSections.has(index)
                       ? "bg-green-500"
                       : "bg-stone-300"
                   }`}
@@ -175,9 +256,13 @@ export default function Home() {
           {/* Down Button */}
           <button
             onClick={handleNext}
-            disabled={currentParagraph === paragraphs.length - 1}
+            disabled={
+              currentParagraph === paragraphs.length - 1 ||
+              !currentSectionAnswered
+            }
             className={`group flex h-12 w-12 items-center justify-center rounded-full shadow-lg transition-all duration-200 ${
-              currentParagraph === paragraphs.length - 1
+              currentParagraph === paragraphs.length - 1 ||
+              !currentSectionAnswered
                 ? "cursor-not-allowed bg-stone-200"
                 : "bg-white hover:scale-110 hover:bg-blue-600 hover:shadow-xl"
             }`}
@@ -185,7 +270,8 @@ export default function Home() {
           >
             <ChevronDown
               className={`h-6 w-6 transition-colors ${
-                currentParagraph === paragraphs.length - 1
+                currentParagraph === paragraphs.length - 1 ||
+                !currentSectionAnswered
                   ? "text-stone-400"
                   : "text-gray-800 group-hover:text-white"
               }`}
@@ -224,9 +310,13 @@ export default function Home() {
 
         <button
           onClick={handleNext}
-          disabled={currentParagraph === paragraphs.length - 1}
+          disabled={
+            currentParagraph === paragraphs.length - 1 ||
+            !currentSectionAnswered
+          }
           className={`flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-all duration-200 ${
-            currentParagraph === paragraphs.length - 1
+            currentParagraph === paragraphs.length - 1 ||
+            !currentSectionAnswered
               ? "cursor-not-allowed bg-stone-200"
               : "bg-white hover:scale-110 hover:bg-blue-600"
           }`}
@@ -234,7 +324,8 @@ export default function Home() {
         >
           <ChevronDown
             className={`h-7 w-7 ${
-              currentParagraph === paragraphs.length - 1
+              currentParagraph === paragraphs.length - 1 ||
+              !currentSectionAnswered
                 ? "text-stone-400"
                 : "text-gray-800"
             }`}

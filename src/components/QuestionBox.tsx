@@ -11,6 +11,19 @@ interface QuestionBoxProps {
   fullPassage: string;
   passageTitle: string;
   sectionNumber: number;
+  cachedQuestion?: string;
+  cachedAnswerData?: {
+    answer: string;
+    evaluation: { correct: boolean; explanation: string };
+  };
+  isLastSection: boolean;
+  onQuestionGenerated: (question: string) => void;
+  onAnswered: (
+    isCorrect: boolean,
+    answer: string,
+    evaluation: { correct: boolean; explanation: string }
+  ) => void;
+  onNext: () => void;
 }
 
 type LoadingState = "loading" | "ready" | "submitting" | "evaluated";
@@ -20,6 +33,12 @@ export function QuestionBox({
   fullPassage,
   passageTitle,
   sectionNumber,
+  cachedQuestion,
+  cachedAnswerData,
+  isLastSection,
+  onQuestionGenerated,
+  onAnswered,
+  onNext,
 }: QuestionBoxProps) {
   const [question, setQuestion] = useState<string>("");
   const [answer, setAnswer] = useState("");
@@ -33,10 +52,29 @@ export function QuestionBox({
   useEffect(() => {
     let cancelled = false;
 
-    async function generateQuestion() {
+    async function loadQuestion() {
+      // Use cached question if available
+      if (cachedQuestion) {
+        setQuestion(cachedQuestion);
+        setError("");
+
+        // Restore cached answer and evaluation if available
+        if (cachedAnswerData) {
+          setAnswer(cachedAnswerData.answer);
+          setEvaluation(cachedAnswerData.evaluation);
+          setLoadingState("evaluated");
+        } else {
+          setAnswer("");
+          setEvaluation(null);
+          setLoadingState("ready");
+        }
+        return;
+      }
+
+      // Otherwise, generate new question
       setLoadingState("loading");
-      setError("");
       setQuestion("");
+      setError("");
       setAnswer("");
       setEvaluation(null);
 
@@ -60,6 +98,8 @@ export function QuestionBox({
         if (!cancelled) {
           setQuestion(data.question);
           setLoadingState("ready");
+          // Notify parent to cache this question
+          onQuestionGenerated(data.question);
         }
       } catch (err) {
         if (!cancelled) {
@@ -69,7 +109,7 @@ export function QuestionBox({
       }
     }
 
-    generateQuestion();
+    loadQuestion();
 
     return () => {
       cancelled = true;
@@ -102,6 +142,9 @@ export function QuestionBox({
       const data: EvaluateAnswerResponse = await response.json();
       setEvaluation(data);
       setLoadingState("evaluated");
+
+      // Notify parent that question was answered
+      onAnswered(data.correct, answer.trim(), data);
     } catch (err) {
       setError("Failed to evaluate answer. Please try again.");
       setLoadingState("ready");
@@ -310,8 +353,8 @@ export function QuestionBox({
             </div>
           )}
 
-          {/* Try Again Button */}
-          <div className="flex justify-end">
+          {/* Action Buttons */}
+          <div className="flex justify-end gap-3">
             <button
               onClick={handleTryAgain}
               className="flex items-center gap-2 rounded-lg border-2 border-stone-300 bg-white px-6 py-3 font-semibold text-gray-800 transition-colors hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
@@ -331,6 +374,28 @@ export function QuestionBox({
               </svg>
               Try Again
             </button>
+
+            {!isLastSection && (
+              <button
+                onClick={onNext}
+                className="flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              >
+                Next Section
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 7l5 5m0 0l-5 5m5-5H6"
+                  />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
       )}
