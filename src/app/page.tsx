@@ -3,11 +3,17 @@
 import { useState, useRef } from "react";
 import { passageData, getParagraphs } from "@/data/passage";
 import { ChevronDown, ChevronUp, BookOpen } from "lucide-react";
-import { ReadingCard, ProgressIndicator, QuestionBox } from "@/components";
+import {
+  ReadingCard,
+  ProgressIndicator,
+  QuestionBox,
+  PassageModal,
+} from "@/components";
 
 export default function Home() {
   const paragraphs = getParagraphs(passageData);
   const [currentParagraph, setCurrentParagraph] = useState(0);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const paragraphRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const scrollToParagraph = (index: number) => {
@@ -35,16 +41,54 @@ export default function Home() {
       {/* Header */}
       <header className="sticky top-0 z-10 border-b border-stone-200 bg-white/90 backdrop-blur-sm">
         <div className="mx-auto max-w-4xl px-6 py-6">
-          <div className="flex items-center justify-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-500">
-              <BookOpen className="h-6 w-6 text-white" strokeWidth={2} />
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-500">
+                <BookOpen className="h-6 w-6 text-white" strokeWidth={2} />
+              </div>
+              <h1 className="text-xl font-bold text-gray-800 sm:text-2xl md:text-3xl">
+                {passageData.title}
+              </h1>
             </div>
-            <h1 className="text-2xl font-bold text-gray-800 sm:text-3xl">
-              {passageData.title}
-            </h1>
+
+            {/* View Full Passage Button */}
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="flex items-center gap-2 rounded-lg border-2 border-stone-300 bg-white px-3 py-2 text-sm font-semibold text-gray-800 transition-colors hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:px-4 sm:py-2.5"
+              aria-label="View full passage"
+            >
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                />
+              </svg>
+              <span className="hidden sm:inline">View Full Passage</span>
+            </button>
           </div>
         </div>
       </header>
+
+      {/* Passage Modal */}
+      <PassageModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={passageData.title}
+        content={passageData.content}
+      />
 
       {/* Main Content */}
       <main className="mx-auto max-w-4xl px-6 py-12 lg:px-12">
@@ -63,7 +107,12 @@ export default function Home() {
               {/* Show QuestionBox only for current section */}
               {currentParagraph === index && (
                 <div className="mt-8">
-                  <QuestionBox />
+                  <QuestionBox
+                    paragraph={paragraph}
+                    fullPassage={passageData.content}
+                    passageTitle={passageData.title}
+                    sectionNumber={index + 1}
+                  />
                 </div>
               )}
             </div>

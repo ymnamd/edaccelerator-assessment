@@ -1,26 +1,156 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import type {
+  GenerateQuestionResponse,
+  EvaluateAnswerResponse,
+} from "@/types/api";
 
 interface QuestionBoxProps {
-  // Reserved for future use when we implement dynamic questions
+  paragraph: string;
+  fullPassage: string;
+  passageTitle: string;
+  sectionNumber: number;
 }
 
-export function QuestionBox({}: QuestionBoxProps) {
-  const [answer, setAnswer] = useState("");
-  const [isSubmitted, setIsSubmitted] = useState(false);
+type LoadingState = "loading" | "ready" | "submitting" | "evaluated";
 
-  const handleSubmit = (e: React.FormEvent) => {
+export function QuestionBox({
+  paragraph,
+  fullPassage,
+  passageTitle,
+  sectionNumber,
+}: QuestionBoxProps) {
+  const [question, setQuestion] = useState<string>("");
+  const [answer, setAnswer] = useState("");
+  const [loadingState, setLoadingState] = useState<LoadingState>("loading");
+  const [evaluation, setEvaluation] = useState<EvaluateAnswerResponse | null>(
+    null
+  );
+  const [error, setError] = useState<string>("");
+
+  // Generate question when component mounts or section changes
+  useEffect(() => {
+    let cancelled = false;
+
+    async function generateQuestion() {
+      setLoadingState("loading");
+      setError("");
+      setQuestion("");
+      setAnswer("");
+      setEvaluation(null);
+
+      try {
+        const response = await fetch("/api/generate-question", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            paragraph,
+            fullPassage,
+            passageTitle,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to generate question");
+        }
+
+        const data: GenerateQuestionResponse = await response.json();
+
+        if (!cancelled) {
+          setQuestion(data.question);
+          setLoadingState("ready");
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError("Failed to load question. Please try again.");
+          setLoadingState("ready");
+        }
+      }
+    }
+
+    generateQuestion();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [paragraph, fullPassage, passageTitle, sectionNumber]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (answer.trim()) {
-      setIsSubmitted(true);
+    if (!answer.trim() || !question) return;
+
+    setLoadingState("submitting");
+    setError("");
+
+    try {
+      const response = await fetch("/api/evaluate-answer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question,
+          answer: answer.trim(),
+          paragraph,
+          fullPassage,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to evaluate answer");
+      }
+
+      const data: EvaluateAnswerResponse = await response.json();
+      setEvaluation(data);
+      setLoadingState("evaluated");
+    } catch (err) {
+      setError("Failed to evaluate answer. Please try again.");
+      setLoadingState("ready");
     }
   };
 
   const handleTryAgain = () => {
     setAnswer("");
-    setIsSubmitted(false);
+    setEvaluation(null);
+    setLoadingState("ready");
   };
+
+  // Loading state
+  if (loadingState === "loading") {
+    return (
+      <div className="mx-auto max-w-3xl rounded-2xl bg-white p-8 shadow-sm ring-1 ring-stone-200 sm:p-10">
+        <div className="flex items-center justify-center space-x-3 py-12">
+          <div className="h-6 w-6 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600"></div>
+          <p className="text-gray-600">Generating question...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error && !question) {
+    return (
+      <div className="mx-auto max-w-3xl rounded-2xl bg-white p-8 shadow-sm ring-1 ring-stone-200 sm:p-10">
+        <div className="text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-rose-100">
+            <svg
+              className="h-6 w-6 text-rose-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          </div>
+          <p className="text-gray-800">{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-3xl rounded-2xl bg-white p-8 shadow-sm ring-1 ring-stone-200 sm:p-10">
@@ -41,15 +171,15 @@ export function QuestionBox({}: QuestionBoxProps) {
             />
           </svg>
         </div>
-        <div>
+        <div className="flex-1">
           <h3 className="text-lg font-semibold text-gray-800 sm:text-xl">
-            What is the main idea of this section?
+            {question}
           </h3>
         </div>
       </div>
 
-      {/* Answer Form */}
-      {!isSubmitted ? (
+      {/* Answer Form or Evaluation */}
+      {loadingState !== "evaluated" ? (
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="answer" className="sr-only">
@@ -61,36 +191,52 @@ export function QuestionBox({}: QuestionBoxProps) {
               onChange={(e) => setAnswer(e.target.value)}
               placeholder="Type your answer here..."
               rows={4}
-              className="w-full rounded-lg border border-stone-300 bg-stone-50 px-4 py-3 text-gray-800 placeholder-gray-400 transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              disabled={loadingState === "submitting"}
+              className="w-full rounded-lg border border-stone-300 bg-stone-50 px-4 py-3 text-gray-800 placeholder-gray-400 transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               required
             />
           </div>
 
+          {error && (
+            <div className="rounded-lg bg-rose-50 p-3 text-sm text-rose-800">
+              {error}
+            </div>
+          )}
+
           <div className="flex justify-end">
             <button
               type="submit"
+              disabled={!answer.trim() || loadingState === "submitting"}
               className="flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={!answer.trim()}
             >
-              Submit Answer
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M14 5l7 7m0 0l-7 7m7-7H3"
-                />
-              </svg>
+              {loadingState === "submitting" ? (
+                <>
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                  Evaluating...
+                </>
+              ) : (
+                <>
+                  Submit Answer
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M14 5l7 7m0 0l-7 7m7-7H3"
+                    />
+                  </svg>
+                </>
+              )}
             </button>
           </div>
         </form>
       ) : (
-        /* Feedback Area */
+        /* Evaluation Results */
         <div className="space-y-4">
           {/* User's Answer Display */}
           <div className="rounded-lg bg-stone-50 p-4">
@@ -100,27 +246,69 @@ export function QuestionBox({}: QuestionBoxProps) {
             <p className="text-gray-800">{answer}</p>
           </div>
 
-          {/* Placeholder Feedback */}
-          <div className="rounded-lg border-2 border-dashed border-stone-300 bg-stone-50/50 p-6 text-center">
-            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-stone-200">
-              <svg
-                className="h-6 w-6 text-gray-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+          {/* Feedback */}
+          {evaluation && (
+            <div
+              className={`rounded-lg p-4 ${
+                evaluation.correct
+                  ? "bg-green-50 ring-1 ring-green-200"
+                  : "bg-rose-50 ring-1 ring-rose-200"
+              }`}
+            >
+              <div className="mb-3 flex items-center gap-2">
+                {evaluation.correct ? (
+                  <>
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-500">
+                      <svg
+                        className="h-5 w-5 text-white"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                    </div>
+                    <p className="font-semibold text-green-800">
+                      Great job!
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500">
+                      <svg
+                        className="h-5 w-5 text-white"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </div>
+                    <p className="font-semibold text-rose-800">
+                      Not quite right
+                    </p>
+                  </>
+                )}
+              </div>
+              <p
+                className={
+                  evaluation.correct ? "text-green-800" : "text-rose-800"
+                }
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
+                {evaluation.explanation}
+              </p>
             </div>
-            <p className="text-sm text-gray-600">
-              Feedback will appear here after AI evaluation
-            </p>
-          </div>
+          )}
 
           {/* Try Again Button */}
           <div className="flex justify-end">
