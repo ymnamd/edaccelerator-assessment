@@ -13,6 +13,7 @@ interface QuestionBoxProps {
   passageTitle: string;
   sectionNumber: number;
   cachedQuestion?: string;
+  cachedSkill?: ComprehensionSkill;
   cachedAnswerData?: {
     answer: string;
     evaluation: { correct: boolean; explanation: string };
@@ -37,6 +38,7 @@ export function QuestionBox({
   passageTitle,
   sectionNumber,
   cachedQuestion,
+  cachedSkill,
   cachedAnswerData,
   isLastSection,
   onQuestionGenerated,
@@ -62,22 +64,23 @@ export function QuestionBox({
 
     async function loadQuestion() {
       // Use cached question if available
-      if (cachedQuestion) {
+      if (cachedQuestion && cachedSkill) {
         setQuestion(cachedQuestion);
+        setSkill(cachedSkill);
         setError("");
 
-        // Restore cached answer, evaluation, and skill if available
+        // Recreate soft prompt from cached skill
+        const softPromptMap = {
+          Understanding: "Reflect",
+          Reasoning: "Think Deeper",
+          Application: "Apply What You've Read",
+        };
+        setSoftPrompt(softPromptMap[cachedSkill]);
+
+        // Restore cached answer, evaluation if available
         if (cachedAnswerData) {
           setAnswer(cachedAnswerData.answer);
           setEvaluation(cachedAnswerData.evaluation);
-          setSkill(cachedAnswerData.skill);
-          // Recreate soft prompt from cached skill
-          const softPromptMap = {
-            Understanding: "Reflect",
-            Reasoning: "Think Deeper",
-            Application: "Apply What You've Read",
-          };
-          setSoftPrompt(softPromptMap[cachedAnswerData.skill]);
           setLoadingState("evaluated");
         } else {
           setAnswer("");
@@ -132,7 +135,15 @@ export function QuestionBox({
     return () => {
       cancelled = true;
     };
-  }, [paragraph, fullPassage, passageTitle, sectionNumber]);
+  }, [
+    paragraph,
+    fullPassage,
+    passageTitle,
+    sectionNumber,
+    cachedQuestion,
+    cachedSkill,
+    cachedAnswerData,
+  ]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -422,27 +433,25 @@ export function QuestionBox({
                 Try Again
               </button>
             ) : (
-              !isLastSection && (
-                <button
-                  onClick={onNext}
-                  className="flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              <button
+                onClick={onNext}
+                className="flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              >
+                {isLastSection ? "View Results" : "Next Section"}
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
                 >
-                  Next Section
-                  <svg
-                    className="h-4 w-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13 7l5 5m0 0l-5 5m5-5H6"
-                    />
-                  </svg>
-                </button>
-              )
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 7l5 5m0 0l-5 5m5-5H6"
+                  />
+                </svg>
+              </button>
             )}
           </div>
         </div>

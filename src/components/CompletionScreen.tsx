@@ -1,13 +1,19 @@
 "use client";
 
-import { Trophy, RotateCcw } from "lucide-react";
-import type { AnsweredQuestion, ComprehensionSkill } from "@/types/api";
+import { Trophy, Sparkles, TrendingDown, TrendingUp } from "lucide-react";
+import type {
+  AnsweredQuestion,
+  ComprehensionSkill,
+  DifficultyLevel,
+} from "@/types/api";
 
 interface CompletionScreenProps {
   correctAnswers: number;
   totalQuestions: number;
   answeredQuestions: AnsweredQuestion[];
   onRestart: () => void;
+  onTryNewPassage: (difficulty: DifficultyLevel) => void;
+  isGeneratingPassage: boolean;
 }
 
 export function CompletionScreen({
@@ -15,24 +21,45 @@ export function CompletionScreen({
   totalQuestions,
   answeredQuestions,
   onRestart,
+  onTryNewPassage,
+  isGeneratingPassage,
 }: CompletionScreenProps) {
   const percentage = Math.round((correctAnswers / totalQuestions) * 100);
 
-  // Count skills engaged
-  const skillCounts = answeredQuestions.reduce(
+  // Determine recommended difficulty based on score
+  const getRecommendedDifficulty = (): DifficultyLevel => {
+    if (percentage >= 90) return "harder";
+    if (percentage >= 70) return "same";
+    return "easier";
+  };
+
+  const recommendedDifficulty = getRecommendedDifficulty();
+
+  // Calculate skill statistics
+  const skillStats = answeredQuestions.reduce(
     (acc, q) => {
-      acc[q.skill] = (acc[q.skill] || 0) + 1;
+      if (!acc[q.skill]) {
+        acc[q.skill] = { total: 0, correct: 0 };
+      }
+      acc[q.skill].total += 1;
+      if (q.correct) {
+        acc[q.skill].correct += 1;
+      }
+      return acc;
+    },
+    {} as Record<ComprehensionSkill, { total: number; correct: number }>
+  );
+
+  // Calculate percentage for each skill
+  const skillPercentages = Object.entries(skillStats).reduce(
+    (acc, [skill, stats]) => {
+      acc[skill as ComprehensionSkill] = Math.round(
+        (stats.correct / stats.total) * 100
+      );
       return acc;
     },
     {} as Record<ComprehensionSkill, number>
   );
-
-  // Determine which skills were engaged
-  const skillsEngaged = {
-    Understanding: skillCounts.Understanding > 0,
-    Reasoning: skillCounts.Reasoning > 0,
-    Application: skillCounts.Application > 0,
-  };
 
   // Determine encouraging message based on performance
   const getMessage = () => {
@@ -89,7 +116,7 @@ export function CompletionScreen({
             </h3>
             <div className="space-y-2">
               {/* Understanding - Only show if tested */}
-              {skillsEngaged.Understanding && (
+              {skillStats.Understanding && (
                 <div className="flex items-center justify-between rounded-lg bg-blue-50 px-4 py-3 ring-1 ring-blue-200 transition-all">
                   <div className="flex items-center gap-3">
                     <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500">
@@ -111,24 +138,20 @@ export function CompletionScreen({
                       Understanding
                     </span>
                   </div>
-                  <svg
-                    className="h-6 w-6 text-blue-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2.5}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-blue-600">
+                      ({skillStats.Understanding.correct} /{" "}
+                      {skillStats.Understanding.total})
+                    </span>
+                    <span className="text-lg font-bold text-blue-600">
+                      {skillPercentages.Understanding}%
+                    </span>
+                  </div>
                 </div>
               )}
 
               {/* Reasoning - Only show if tested */}
-              {skillsEngaged.Reasoning && (
+              {skillStats.Reasoning && (
                 <div className="flex items-center justify-between rounded-lg bg-teal-50 px-4 py-3 ring-1 ring-teal-200 transition-all">
                   <div className="flex items-center gap-3">
                     <div className="flex h-8 w-8 items-center justify-center rounded-full bg-teal-500">
@@ -148,24 +171,20 @@ export function CompletionScreen({
                     </div>
                     <span className="font-medium text-teal-800">Reasoning</span>
                   </div>
-                  <svg
-                    className="h-6 w-6 text-teal-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2.5}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-teal-600">
+                      ({skillStats.Reasoning.correct} /{" "}
+                      {skillStats.Reasoning.total})
+                    </span>
+                    <span className="text-lg font-bold text-teal-600">
+                      {skillPercentages.Reasoning}%
+                    </span>
+                  </div>
                 </div>
               )}
 
               {/* Application - Only show if tested */}
-              {skillsEngaged.Application && (
+              {skillStats.Application && (
                 <div className="flex items-center justify-between rounded-lg bg-green-50 px-4 py-3 ring-1 ring-green-200 transition-all">
                   <div className="flex items-center gap-3">
                     <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-500">
@@ -187,34 +206,100 @@ export function CompletionScreen({
                       Application
                     </span>
                   </div>
-                  <svg
-                    className="h-6 w-6 text-green-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2.5}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-green-600">
+                      ({skillStats.Application.correct} /{" "}
+                      {skillStats.Application.total})
+                    </span>
+                    <span className="text-lg font-bold text-green-600">
+                      {skillPercentages.Application}%
+                    </span>
+                  </div>
                 </div>
               )}
             </div>
           </div>
         )}
 
-        {/* Restart Button */}
-        <div className="flex justify-center">
-          <button
-            onClick={onRestart}
-            className="flex items-center gap-3 rounded-lg bg-blue-600 px-8 py-4 font-semibold text-white transition-all hover:bg-blue-700 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          >
-            <RotateCcw className="h-5 w-5" />
-            Try Another Passage
-          </button>
+        {/* Divider */}
+        <div className="my-8 border-t border-stone-200" />
+
+        {/* Try Another Passage Section */}
+        <div className="space-y-4">
+          <h3 className="text-center text-lg font-semibold text-gray-800">
+            Want to try another passage?
+          </h3>
+          <p className="text-center text-sm text-gray-600">
+            Choose a difficulty level:
+          </p>
+
+          {/* Difficulty Buttons */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {/* Easier Button */}
+            <button
+              onClick={() => onTryNewPassage("easier")}
+              disabled={isGeneratingPassage}
+              className={`group relative flex flex-col items-center gap-2 rounded-lg border-2 p-4 font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                recommendedDifficulty === "easier"
+                  ? "border-blue-500 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                  : "border-stone-300 bg-white text-gray-700 hover:border-blue-400 hover:bg-blue-50"
+              } ${isGeneratingPassage ? "cursor-not-allowed opacity-50" : "hover:scale-105"}`}
+            >
+              {recommendedDifficulty === "easier" && (
+                <span className="absolute -top-2 right-2 rounded-full bg-blue-600 px-2 py-0.5 text-xs text-white">
+                  Recommended
+                </span>
+              )}
+              <TrendingDown className="h-6 w-6" />
+              <span>Easier</span>
+            </button>
+
+            {/* Same Difficulty Button */}
+            <button
+              onClick={() => onTryNewPassage("same")}
+              disabled={isGeneratingPassage}
+              className={`group relative flex flex-col items-center gap-2 rounded-lg border-2 p-4 font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                recommendedDifficulty === "same"
+                  ? "border-blue-500 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                  : "border-stone-300 bg-white text-gray-700 hover:border-blue-400 hover:bg-blue-50"
+              } ${isGeneratingPassage ? "cursor-not-allowed opacity-50" : "hover:scale-105"}`}
+            >
+              {recommendedDifficulty === "same" && (
+                <span className="absolute -top-2 right-2 rounded-full bg-blue-600 px-2 py-0.5 text-xs text-white">
+                  Recommended
+                </span>
+              )}
+              <Sparkles className="h-6 w-6" />
+              <span>Same Level</span>
+            </button>
+
+            {/* Harder Button */}
+            <button
+              onClick={() => onTryNewPassage("harder")}
+              disabled={isGeneratingPassage}
+              className={`group relative flex flex-col items-center gap-2 rounded-lg border-2 p-4 font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                recommendedDifficulty === "harder"
+                  ? "border-blue-500 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                  : "border-stone-300 bg-white text-gray-700 hover:border-blue-400 hover:bg-blue-50"
+              } ${isGeneratingPassage ? "cursor-not-allowed opacity-50" : "hover:scale-105"}`}
+            >
+              {recommendedDifficulty === "harder" && (
+                <span className="absolute -top-2 right-2 rounded-full bg-blue-600 px-2 py-0.5 text-xs text-white">
+                  Recommended
+                </span>
+              )}
+              <TrendingUp className="h-6 w-6" />
+              <span>Harder</span>
+            </button>
+          </div>
+
+          {/* Loading State */}
+          {isGeneratingPassage && (
+            <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+              <span>Generating new passage...</span>
+            </div>
+          )}
         </div>
       </div>
     </div>

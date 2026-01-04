@@ -3,6 +3,9 @@
 // Skill types for tracking comprehension skills
 export type ComprehensionSkill = "Understanding" | "Reasoning" | "Application";
 
+// Difficulty levels for passage generation
+export type DifficultyLevel = "easier" | "same" | "harder";
+
 export interface GenerateQuestionRequest {
   paragraph: string;
   fullPassage?: string;
@@ -37,4 +40,16 @@ export interface AnsweredQuestion {
   answer: string;
   skill: ComprehensionSkill;
   correct: boolean;
+}
+
+// Passage generation interfaces
+export interface GeneratePassageRequest {
+  difficulty: DifficultyLevel;
+  referenceLength?: number; // approximate length to match
+}
+
+export interface GeneratePassageResponse {
+  title: string;
+  content: string;
+  difficulty: DifficultyLevel;
 }

@@ -1,7 +1,11 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { passageData, getParagraphs } from "@/data/passage";
+import {
+  defaultPassageData,
+  getParagraphs,
+  type Passage,
+} from "@/data/passage";
 import { ChevronDown, ChevronUp, BookOpen } from "lucide-react";
 import {
   ReadingCard,
@@ -10,21 +14,34 @@ import {
   PassageModal,
   CompletionScreen,
 } from "@/components";
-import type { AnsweredQuestion, ComprehensionSkill } from "@/types/api";
+import type {
+  AnsweredQuestion,
+  ComprehensionSkill,
+  DifficultyLevel,
+  GeneratePassageResponse,
+} from "@/types/api";
 
 export default function Home() {
-  const paragraphs = getParagraphs(passageData);
+  // Passage state - starts with default bee passage, can be regenerated
+  const [currentPassage, setCurrentPassage] = useState<Passage>(defaultPassageData);
+  const [isGeneratingPassage, setIsGeneratingPassage] = useState(false);
+  const paragraphs = getParagraphs(currentPassage);
+
   const [currentParagraph, setCurrentParagraph] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const paragraphRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   // Track which sections have been answered and score
-  const [answeredSections, setAnsweredSections] = useState<Set<number>>(new Set());
+  const [answeredSections, setAnsweredSections] = useState<Set<number>>(
+    new Set()
+  );
   const [correctAnswers, setCorrectAnswers] = useState(0);
   const [showCompletion, setShowCompletion] = useState(false);
 
   // Track answered questions with their skills for rubric display
-  const [answeredQuestions, setAnsweredQuestions] = useState<AnsweredQuestion[]>([]);
+  const [answeredQuestions, setAnsweredQuestions] = useState<
+    AnsweredQuestion[]
+  >([]);
 
   // Cache generated questions to avoid regenerating on navigation
   const [cachedQuestions, setCachedQuestions] = useState<
@@ -44,9 +61,9 @@ export default function Home() {
   >(new Map());
 
   // Track correctness per section for visual feedback
-  const [sectionCorrectness, setSectionCorrectness] = useState<Map<number, boolean>>(
-    new Map()
-  );
+  const [sectionCorrectness, setSectionCorrectness] = useState<
+    Map<number, boolean>
+  >(new Map());
 
   const scrollToParagraph = (index: number) => {
     setCurrentParagraph(index);
@@ -124,8 +141,8 @@ export default function Home() {
     }
   };
 
-  const handleRestart = () => {
-    // Reset all state
+  const resetQuizState = () => {
+    // Reset all quiz-related state
     setCurrentParagraph(0);
     setAnsweredSections(new Set());
     setCorrectAnswers(0);
@@ -136,6 +153,51 @@ export default function Home() {
     setSectionCorrectness(new Map());
     // Scroll to top
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleRestart = () => {
+    // Restart with the same passage
+    resetQuizState();
+  };
+
+  const handleTryNewPassage = async (difficulty: DifficultyLevel) => {
+    setIsGeneratingPassage(true);
+
+    try {
+      const response = await fetch("/api/generate-passage", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          difficulty,
+          referenceLength: currentPassage.content.length,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to generate passage");
+      }
+
+      const data: GeneratePassageResponse = await response.json();
+
+      // Create new passage object
+      const newPassage: Passage = {
+        id: `passage-${Date.now()}`,
+        title: data.title,
+        content: data.content,
+        difficulty: data.difficulty,
+      };
+
+      // Update passage and reset all state
+      setCurrentPassage(newPassage);
+      resetQuizState();
+    } catch (error) {
+      console.error("Error generating passage:", error);
+      alert("Failed to generate a new passage. Please try again.");
+    } finally {
+      setIsGeneratingPassage(false);
+    }
   };
 
   // Check if current section is answered
@@ -153,7 +215,7 @@ export default function Home() {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-800 sm:text-2xl md:text-3xl">
-                  {passageData.title}
+                  {currentPassage.title}
                 </h1>
                 {/* View Full Passage Button */}
                 <button
@@ -201,8 +263,8 @@ export default function Home() {
       <PassageModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={passageData.title}
-        content={passageData.content}
+        title={currentPassage.title}
+        content={currentPassage.content}
       />
 
       {/* Main Content */}
@@ -213,6 +275,8 @@ export default function Home() {
             totalQuestions={paragraphs.length}
             answeredQuestions={answeredQuestions}
             onRestart={handleRestart}
+            onTryNewPassage={handleTryNewPassage}
+            isGeneratingPassage={isGeneratingPassage}
           />
         ) : (
           <div className="space-y-16">
@@ -234,17 +298,24 @@ export default function Home() {
                   <div className="mt-8">
                     <QuestionBox
                       paragraph={paragraph}
-                      fullPassage={passageData.content}
-                      passageTitle={passageData.title}
+                      fullPassage={currentPassage.content}
+                      passageTitle={currentPassage.title}
                       sectionNumber={index + 1}
                       cachedQuestion={cachedQuestions.get(index)?.question}
+                      cachedSkill={cachedQuestions.get(index)?.skill}
                       cachedAnswerData={cachedAnswers.get(index)}
                       isLastSection={index === paragraphs.length - 1}
                       onQuestionGenerated={(question, skill) =>
                         handleQuestionGenerated(index, question, skill)
                       }
                       onAnswered={(isCorrect, answer, evaluation, skill) =>
-                        handleQuestionAnswered(index, isCorrect, answer, evaluation, skill)
+                        handleQuestionAnswered(
+                          index,
+                          isCorrect,
+                          answer,
+                          evaluation,
+                          skill
+                        )
                       }
                       onNext={handleNext}
                     />
