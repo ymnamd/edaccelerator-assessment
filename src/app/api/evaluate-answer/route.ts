@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
+import { API_CONFIG } from "@/config/api";
 
 // Initialize OpenAI client (SERVER-SIDE ONLY)
 const openai = new OpenAI({
@@ -34,9 +35,9 @@ export async function POST(request: NextRequest) {
 
     // Sanitize inputs (trim whitespace, limit length)
     const sanitizedQuestion = question.trim().slice(0, 500);
-    const sanitizedAnswer = answer.trim().slice(0, 2000);
-    const sanitizedParagraph = paragraph.trim().slice(0, 5000);
-    const sanitizedPassage = fullPassage?.trim().slice(0, 10000);
+    const sanitizedAnswer = answer.trim().slice(0, API_CONFIG.limits.questionMaxLength);
+    const sanitizedParagraph = paragraph.trim().slice(0, API_CONFIG.limits.passageMaxLength.beginner);
+    const sanitizedPassage = fullPassage?.trim().slice(0, API_CONFIG.limits.passageMaxLength.intermediate);
 
     // Check for API key configuration
     if (!process.env.OPENAI_API_KEY) {
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest) {
 
     // Evaluate answer using OpenAI
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: API_CONFIG.openai.model,
       messages: [
         {
           role: "system",
@@ -91,8 +92,8 @@ ${sanitizedAnswer}
 Evaluate if this answer demonstrates comprehension. Respond with JSON only.`,
         },
       ],
-      temperature: 0.3,
-      max_tokens: 200,
+      temperature: API_CONFIG.openai.temperature.precise,
+      max_tokens: API_CONFIG.openai.maxTokens.evaluation,
       response_format: { type: "json_object" },
     });
 

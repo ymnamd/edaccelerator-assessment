@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
+import { API_CONFIG } from "@/config/api";
+import { SKILL_DESCRIPTIONS, SKILL_SOFT_PROMPTS } from "@/config/skills";
 
 // Initialize OpenAI client (SERVER-SIDE ONLY)
 const openai = new OpenAI({
@@ -21,9 +23,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Sanitize inputs (trim whitespace, limit length)
-    const sanitizedParagraph = paragraph.trim().slice(0, 5000);
-    const sanitizedPassage = fullPassage?.trim().slice(0, 10000);
-    const sanitizedTitle = passageTitle?.trim().slice(0, 200);
+    const sanitizedParagraph = paragraph.trim().slice(0, API_CONFIG.limits.passageMaxLength.beginner);
+    const sanitizedPassage = fullPassage?.trim().slice(0, API_CONFIG.limits.passageMaxLength.intermediate);
+    const sanitizedTitle = passageTitle?.trim().slice(0, API_CONFIG.limits.passageMaxLength.advanced);
 
     // Check for API key configuration
     if (!process.env.OPENAI_API_KEY) {
@@ -42,7 +44,7 @@ export async function POST(request: NextRequest) {
 
     // Generate question using OpenAI with skill classification
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: API_CONFIG.openai.model,
       messages: [
         {
           role: "system",
@@ -51,9 +53,9 @@ export async function POST(request: NextRequest) {
 Your task is to generate ONE high-quality comprehension question based on a specific section of a passage.
 
 Skill Categories:
-1. Understanding - Questions about main ideas, vocabulary in context, literal comprehension
-2. Reasoning - Questions about inference, cause and effect, author's purpose, comparisons
-3. Application - Questions about applying concepts, making predictions, connecting to real world
+1. Understanding - ${SKILL_DESCRIPTIONS.Understanding}
+2. Reasoning - ${SKILL_DESCRIPTIONS.Reasoning}
+3. Application - ${SKILL_DESCRIPTIONS.Application}
 
 Guidelines:
 - Focus on understanding and inference, NOT simple factual recall
@@ -82,8 +84,8 @@ ${sanitizedParagraph}
 Generate ONE comprehension question for this specific section that tests understanding, reasoning, or application.`,
         },
       ],
-      temperature: 0.7,
-      max_tokens: 200,
+      temperature: API_CONFIG.openai.temperature.creative,
+      max_tokens: API_CONFIG.openai.maxTokens.question,
       response_format: { type: "json_object" },
     });
 
@@ -98,14 +100,8 @@ Generate ONE comprehension question for this specific section that tests underst
     const question = parsed.question;
     const skill = parsed.skill as "Understanding" | "Reasoning" | "Application";
 
-    // Map skill to soft prompt
-    const softPromptMap = {
-      Understanding: "Reflect",
-      Reasoning: "Think Deeper",
-      Application: "Apply What You've Read",
-    };
-
-    const softPrompt = softPromptMap[skill];
+    // Map skill to soft prompt using centralized config
+    const softPrompt = SKILL_SOFT_PROMPTS[skill];
 
     if (!question || !skill) {
       throw new Error("Invalid question format");

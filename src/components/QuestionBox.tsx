@@ -1,11 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import type {
-  GenerateQuestionResponse,
-  EvaluateAnswerResponse,
-  ComprehensionSkill,
-} from "@/types/api";
+import type { ComprehensionSkill } from "@/types/api";
+import { useQuestionFlow } from "@/hooks";
 
 interface QuestionBoxProps {
   paragraph: string;
@@ -31,8 +27,6 @@ interface QuestionBoxProps {
   onNext: () => void;
 }
 
-type LoadingState = "loading" | "ready" | "submitting" | "evaluated";
-
 export function QuestionBox({
   paragraph,
   fullPassage,
@@ -47,98 +41,18 @@ export function QuestionBox({
   onAnswered,
   onNext,
 }: QuestionBoxProps) {
-  const [question, setQuestion] = useState<string>("");
-  const [answer, setAnswer] = useState("");
-  const [loadingState, setLoadingState] = useState<LoadingState>("loading");
-  const [evaluation, setEvaluation] = useState<EvaluateAnswerResponse | null>(
-    null
-  );
-  const [error, setError] = useState<string>("");
-  // Track the skill and soft prompt for this question
-  const [skill, setSkill] = useState<ComprehensionSkill>("Understanding");
-  const [softPrompt, setSoftPrompt] = useState<string>("");
-  // Track if this is the first attempt (for scoring purposes)
-  const [isFirstAttempt, setIsFirstAttempt] = useState(true);
-
-  // Generate question when component mounts or section changes
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadQuestion() {
-      // Use cached question if available
-      if (cachedQuestion && cachedSkill) {
-        setQuestion(cachedQuestion);
-        setSkill(cachedSkill);
-        setError("");
-
-        // Recreate soft prompt from cached skill
-        const softPromptMap = {
-          Understanding: "Reflect",
-          Reasoning: "Think Deeper",
-          Application: "Apply What You've Read",
-        };
-        setSoftPrompt(softPromptMap[cachedSkill]);
-
-        // Restore cached answer, evaluation if available
-        if (cachedAnswerData) {
-          setAnswer(cachedAnswerData.answer);
-          setEvaluation(cachedAnswerData.evaluation);
-          setLoadingState("evaluated");
-        } else {
-          setAnswer("");
-          setEvaluation(null);
-          setLoadingState("ready");
-        }
-        return;
-      }
-
-      // Otherwise, generate new question
-      setLoadingState("loading");
-      setQuestion("");
-      setError("");
-      setAnswer("");
-      setEvaluation(null);
-
-      try {
-        const response = await fetch("/api/generate-question", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            paragraph,
-            fullPassage,
-            passageTitle,
-            prioritizeSkills,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to generate question");
-        }
-
-        const data: GenerateQuestionResponse = await response.json();
-
-        if (!cancelled) {
-          setQuestion(data.question);
-          setSkill(data.skill);
-          setSoftPrompt(data.softPrompt);
-          setLoadingState("ready");
-          // Notify parent to cache this question with skill
-          onQuestionGenerated(data.question, data.skill);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError("Failed to load question. Please try again.");
-          setLoadingState("ready");
-        }
-      }
-    }
-
-    loadQuestion();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
+  const {
+    question,
+    answer,
+    setAnswer,
+    loadingState,
+    evaluation,
+    error,
+    skill,
+    softPrompt,
+    handleSubmit,
+    handleTryAgain,
+  } = useQuestionFlow({
     paragraph,
     fullPassage,
     passageTitle,
@@ -146,54 +60,10 @@ export function QuestionBox({
     cachedQuestion,
     cachedSkill,
     cachedAnswerData,
-  ]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!answer.trim() || !question) return;
-
-    setLoadingState("submitting");
-    setError("");
-
-    try {
-      const response = await fetch("/api/evaluate-answer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          question,
-          answer: answer.trim(),
-          paragraph,
-          fullPassage,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to evaluate answer");
-      }
-
-      const data: EvaluateAnswerResponse = await response.json();
-      setEvaluation(data);
-      setLoadingState("evaluated");
-
-      // Notify parent that question was answered, including skill
-      // Pass whether this was the first attempt for scoring
-      onAnswered(data.correct && isFirstAttempt, answer.trim(), data, skill);
-
-      // Mark that first attempt is complete
-      if (isFirstAttempt) {
-        setIsFirstAttempt(false);
-      }
-    } catch (err) {
-      setError("Failed to evaluate answer. Please try again.");
-      setLoadingState("ready");
-    }
-  };
-
-  const handleTryAgain = () => {
-    setAnswer("");
-    setEvaluation(null);
-    setLoadingState("ready");
-  };
+    prioritizeSkills,
+    onQuestionGenerated,
+    onAnswered,
+  });
 
   // Loading state
   if (loadingState === "loading") {

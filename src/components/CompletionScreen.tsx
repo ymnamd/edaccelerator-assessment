@@ -28,9 +28,9 @@ export function CompletionScreen({
 
   // Determine recommended difficulty based on score
   const getRecommendedDifficulty = (): DifficultyLevel => {
-    if (percentage >= 90) return "harder";
-    if (percentage >= 70) return "same";
-    return "easier";
+    if (percentage >= 90) return "advanced";
+    if (percentage >= 70) return "intermediate";
+    return "beginner";
   };
 
   const recommendedDifficulty = getRecommendedDifficulty();
@@ -235,61 +235,61 @@ export function CompletionScreen({
 
           {/* Difficulty Buttons */}
           <div className="grid grid-cols-1 gap-2.5 sm:gap-3 sm:grid-cols-3">
-            {/* Easier Button */}
+            {/* Beginner Button */}
             <button
-              onClick={() => onTryNewPassage("easier")}
+              onClick={() => onTryNewPassage("beginner")}
               disabled={isGeneratingPassage}
               className={`group relative flex flex-col items-center gap-1.5 sm:gap-2 rounded-lg border-2 p-3 sm:p-4 text-sm sm:text-base font-semibold transition-all active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                recommendedDifficulty === "easier"
+                recommendedDifficulty === "beginner"
                   ? "border-blue-500 bg-blue-50 text-blue-700 hover:bg-blue-100"
                   : "border-stone-300 bg-white text-gray-700 hover:border-blue-400 hover:bg-blue-50"
               } ${isGeneratingPassage ? "cursor-not-allowed opacity-50" : "hover:scale-105"}`}
             >
-              {recommendedDifficulty === "easier" && (
+              {recommendedDifficulty === "beginner" && (
                 <span className="absolute -top-2 right-2 rounded-full bg-blue-600 px-2 py-0.5 text-xs text-white">
                   Recommended
                 </span>
               )}
               <TrendingDown className="h-6 w-6" />
-              <span>Easier</span>
+              <span>Beginner</span>
             </button>
 
-            {/* Same Difficulty Button */}
+            {/* Intermediate Difficulty Button */}
             <button
-              onClick={() => onTryNewPassage("same")}
+              onClick={() => onTryNewPassage("intermediate")}
               disabled={isGeneratingPassage}
               className={`group relative flex flex-col items-center gap-1.5 sm:gap-2 rounded-lg border-2 p-3 sm:p-4 text-sm sm:text-base font-semibold transition-all active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                recommendedDifficulty === "same"
+                recommendedDifficulty === "intermediate"
                   ? "border-blue-500 bg-blue-50 text-blue-700 hover:bg-blue-100"
                   : "border-stone-300 bg-white text-gray-700 hover:border-blue-400 hover:bg-blue-50"
               } ${isGeneratingPassage ? "cursor-not-allowed opacity-50" : "hover:scale-105"}`}
             >
-              {recommendedDifficulty === "same" && (
+              {recommendedDifficulty === "intermediate" && (
                 <span className="absolute -top-2 right-2 rounded-full bg-blue-600 px-2 py-0.5 text-xs text-white">
                   Recommended
                 </span>
               )}
               <Sparkles className="h-6 w-6" />
-              <span>Same Level</span>
+              <span>Intermediate</span>
             </button>
 
-            {/* Harder Button */}
+            {/* Advanced Button */}
             <button
-              onClick={() => onTryNewPassage("harder")}
+              onClick={() => onTryNewPassage("advanced")}
               disabled={isGeneratingPassage}
               className={`group relative flex flex-col items-center gap-1.5 sm:gap-2 rounded-lg border-2 p-3 sm:p-4 text-sm sm:text-base font-semibold transition-all active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                recommendedDifficulty === "harder"
+                recommendedDifficulty === "advanced"
                   ? "border-blue-500 bg-blue-50 text-blue-700 hover:bg-blue-100"
                   : "border-stone-300 bg-white text-gray-700 hover:border-blue-400 hover:bg-blue-50"
               } ${isGeneratingPassage ? "cursor-not-allowed opacity-50" : "hover:scale-105"}`}
             >
-              {recommendedDifficulty === "harder" && (
+              {recommendedDifficulty === "advanced" && (
                 <span className="absolute -top-2 right-2 rounded-full bg-blue-600 px-2 py-0.5 text-xs text-white">
                   Recommended
                 </span>
               )}
               <TrendingUp className="h-6 w-6" />
-              <span>Harder</span>
+              <span>Advanced</span>
             </button>
           </div>
 

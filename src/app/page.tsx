@@ -14,151 +14,43 @@ import {
   PassageModal,
   CompletionScreen,
 } from "@/components";
-import type {
-  AnsweredQuestion,
-  ComprehensionSkill,
-  DifficultyLevel,
-  GeneratePassageResponse,
-  SkillStats,
-} from "@/types/api";
+import { useQuizState, usePassageGenerator } from "@/hooks";
+import type { DifficultyLevel } from "@/types/api";
 
 export default function Home() {
   // Passage state - starts with default bee passage, can be regenerated
   const [currentPassage, setCurrentPassage] = useState<Passage>(defaultPassageData);
-  const [isGeneratingPassage, setIsGeneratingPassage] = useState(false);
   const paragraphs = getParagraphs(currentPassage);
 
   const [currentParagraph, setCurrentParagraph] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const paragraphRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  // Track which sections have been answered and score
-  const [answeredSections, setAnsweredSections] = useState<Set<number>>(
-    new Set()
-  );
-  const [correctAnswers, setCorrectAnswers] = useState(0);
-  const [showCompletion, setShowCompletion] = useState(false);
+  // Quiz state management hook
+  const quizState = useQuizState();
 
-  // Track answered questions with their skills for rubric display
-  const [answeredQuestions, setAnsweredQuestions] = useState<
-    AnsweredQuestion[]
-  >([]);
-
-  // Cache generated questions to avoid regenerating on navigation
-  const [cachedQuestions, setCachedQuestions] = useState<
-    Map<number, { question: string; skill: ComprehensionSkill }>
-  >(new Map());
-
-  // Cache answers and evaluations per section
-  const [cachedAnswers, setCachedAnswers] = useState<
-    Map<
-      number,
-      {
-        answer: string;
-        evaluation: { correct: boolean; explanation: string };
-        skill: ComprehensionSkill;
-      }
-    >
-  >(new Map());
-
-  // Track correctness per section for visual feedback
-  const [sectionCorrectness, setSectionCorrectness] = useState<
-    Map<number, boolean>
-  >(new Map());
-
-  // Calculate prioritized skills based on current performance
-  const getPrioritizedSkills = (): ComprehensionSkill[] => {
-    if (answeredQuestions.length === 0) {
-      return []; // No data yet, let AI choose naturally
-    }
-
-    const stats = calculateSkillStats();
-    const priorities: ComprehensionSkill[] = [];
-
-    // Add untested skills first (highest priority)
-    (Object.keys(stats) as ComprehensionSkill[]).forEach((skill) => {
-      if (stats[skill].tested === 0) {
-        priorities.push(skill);
-      }
-    });
-
-    // Add weak skills (< 70% correct)
-    (Object.keys(stats) as ComprehensionSkill[]).forEach((skill) => {
-      const skillStat = stats[skill];
-      if (skillStat.tested > 0) {
-        const percentage = (skillStat.correct / skillStat.tested) * 100;
-        if (percentage < 70) {
-          priorities.push(skill);
-        }
-      }
-    });
-
-    return priorities;
-  };
+  // Passage generation hook
+  const { isGeneratingPassage, generateNewPassage } = usePassageGenerator();
 
   const scrollToParagraph = (index: number) => {
     setCurrentParagraph(index);
-    paragraphRefs.current[index]?.scrollIntoView({
-      behavior: "smooth",
-      block: "center",
-    });
-  };
-
-  const handleQuestionGenerated = (
-    sectionIndex: number,
-    question: string,
-    skill: ComprehensionSkill
-  ) => {
-    // Cache the generated question with skill for this section
-    setCachedQuestions((prev) => new Map(prev).set(sectionIndex, { question, skill }));
-  };
-
-  const handleQuestionAnswered = (
-    sectionIndex: number,
-    isCorrectFirstAttempt: boolean,
-    answer: string,
-    evaluation: { correct: boolean; explanation: string },
-    skill: ComprehensionSkill
-  ) => {
-    // Mark section as answered when user gets it correct (even on retry)
-    if (evaluation.correct) {
-      const newAnsweredSections = new Set(answeredSections).add(sectionIndex);
-      setAnsweredSections(newAnsweredSections);
-
-      // Update score ONLY if correct on first attempt and not already answered
-      if (!answeredSections.has(sectionIndex)) {
-        if (isCorrectFirstAttempt) {
-          setCorrectAnswers((prev) => prev + 1);
-        }
-        // Track this answered question with its skill
-        // Mark as correct only if it was correct on first attempt
-        setAnsweredQuestions((prev) => [
-          ...prev,
-          {
-            questionId: sectionIndex,
-            answer,
-            skill,
-            correct: isCorrectFirstAttempt,
-          },
-        ]);
-        // Track correctness for visual feedback (based on first attempt)
-        setSectionCorrectness((prev) => new Map(prev).set(sectionIndex, isCorrectFirstAttempt));
+    
+    // Use setTimeout to ensure state update completes before scrolling
+    setTimeout(() => {
+      const element = paragraphRefs.current[index];
+      if (element) {
+        const elementPosition = element.getBoundingClientRect().top + window.scrollY;
+        // Offset for sticky header (approx 80px) + extra padding (40px) to show paragraph clearly
+        const offsetPosition = elementPosition - 120;
+        
+        window.scrollTo({
+          top: offsetPosition,
+          behavior: "smooth",
+        });
       }
-
-      // Check if this was the last section
-      if (sectionIndex === paragraphs.length - 1) {
-        // Show completion screen after a brief delay
-        setTimeout(() => {
-          setShowCompletion(true);
-        }, 800);
-      }
-    }
-
-    // Always cache the answer and evaluation for display
-    setCachedAnswers((prev) =>
-      new Map(prev).set(sectionIndex, { answer, evaluation, skill })
-    );
+    }, 100);
   };
+
 
   const handleNext = () => {
     if (currentParagraph < paragraphs.length - 1) {
@@ -172,90 +64,26 @@ export default function Home() {
     }
   };
 
-  const resetQuizState = () => {
-    // Reset all quiz-related state
+  const handleRestart = () => {
+    // Restart with the same passage
     setCurrentParagraph(0);
-    setAnsweredSections(new Set());
-    setCorrectAnswers(0);
-    setShowCompletion(false);
-    setAnsweredQuestions([]);
-    setCachedQuestions(new Map());
-    setCachedAnswers(new Map());
-    setSectionCorrectness(new Map());
-    // Scroll to top
+    quizState.resetQuizState();
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleRestart = () => {
-    // Restart with the same passage
-    resetQuizState();
-  };
-
-  const calculateSkillStats = (): SkillStats => {
-    // Initialize stats for all three skills
-    const stats: SkillStats = {
-      Understanding: { tested: 0, correct: 0 },
-      Reasoning: { tested: 0, correct: 0 },
-      Application: { tested: 0, correct: 0 },
-    };
-
-    // Aggregate answered questions by skill
-    answeredQuestions.forEach((q) => {
-      stats[q.skill].tested++;
-      if (q.correct) {
-        stats[q.skill].correct++;
-      }
-    });
-
-    return stats;
-  };
-
   const handleTryNewPassage = async (difficulty: DifficultyLevel) => {
-    setIsGeneratingPassage(true);
+    const skillStats = quizState.calculateSkillStats();
 
-    try {
-      // Calculate skill stats for adaptive learning
-      const skillStats = calculateSkillStats();
-
-      const response = await fetch("/api/generate-passage", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          difficulty,
-          referenceLength: currentPassage.content.length,
-          skillStats,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to generate passage");
-      }
-
-      const data: GeneratePassageResponse = await response.json();
-
-      // Create new passage object
-      const newPassage: Passage = {
-        id: `passage-${Date.now()}`,
-        title: data.title,
-        content: data.content,
-        difficulty: data.difficulty,
-      };
-
-      // Update passage and reset all state
+    await generateNewPassage(difficulty, skillStats, (newPassage) => {
       setCurrentPassage(newPassage);
-      resetQuizState();
-    } catch (error) {
-      console.error("Error generating passage:", error);
-      alert("Failed to generate a new passage. Please try again.");
-    } finally {
-      setIsGeneratingPassage(false);
-    }
+      setCurrentParagraph(0);
+      quizState.resetQuizState();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
   };
 
   // Check if current section is answered
-  const currentSectionAnswered = answeredSections.has(currentParagraph);
+  const currentSectionAnswered = quizState.answeredSections.has(currentParagraph);
 
   return (
     <div className="relative min-h-screen bg-stone-50">
@@ -302,10 +130,10 @@ export default function Home() {
             </div>
 
             {/* Score Display */}
-            {!showCompletion && (
+            {!quizState.showCompletion && (
               <div className="rounded-lg bg-blue-50 px-2.5 py-1.5 sm:px-4 sm:py-2.5">
                 <p className="text-xs sm:text-sm font-semibold text-blue-600">
-                  {correctAnswers} / {paragraphs.length}
+                  {quizState.correctAnswers} / {paragraphs.length}
                 </p>
               </div>
             )}
@@ -323,11 +151,11 @@ export default function Home() {
 
       {/* Main Content */}
       <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-12 lg:px-12 pb-24 lg:pb-12">
-        {showCompletion ? (
+        {quizState.showCompletion ? (
           <CompletionScreen
-            correctAnswers={correctAnswers}
+            correctAnswers={quizState.correctAnswers}
             totalQuestions={paragraphs.length}
-            answeredQuestions={answeredQuestions}
+            answeredQuestions={quizState.answeredQuestions}
             onRestart={handleRestart}
             onTryNewPassage={handleTryNewPassage}
             isGeneratingPassage={isGeneratingPassage}
@@ -343,8 +171,8 @@ export default function Home() {
                   paragraph={paragraph}
                   sectionNumber={index + 1}
                   isActive={currentParagraph === index}
-                  isAnswered={answeredSections.has(index)}
-                  isCorrect={sectionCorrectness.get(index)}
+                  isAnswered={quizState.answeredSections.has(index)}
+                  isCorrect={quizState.sectionCorrectness.get(index)}
                 />
 
                 {/* Show QuestionBox only for current section */}
@@ -355,21 +183,22 @@ export default function Home() {
                       fullPassage={currentPassage.content}
                       passageTitle={currentPassage.title}
                       sectionNumber={index + 1}
-                      cachedQuestion={cachedQuestions.get(index)?.question}
-                      cachedSkill={cachedQuestions.get(index)?.skill}
-                      cachedAnswerData={cachedAnswers.get(index)}
+                      cachedQuestion={quizState.cachedQuestions.get(index)?.question}
+                      cachedSkill={quizState.cachedQuestions.get(index)?.skill}
+                      cachedAnswerData={quizState.cachedAnswers.get(index)}
                       isLastSection={index === paragraphs.length - 1}
-                      prioritizeSkills={getPrioritizedSkills()}
+                      prioritizeSkills={quizState.getPrioritizedSkills()}
                       onQuestionGenerated={(question, skill) =>
-                        handleQuestionGenerated(index, question, skill)
+                        quizState.handleQuestionGenerated(index, question, skill)
                       }
                       onAnswered={(isCorrect, answer, evaluation, skill) =>
-                        handleQuestionAnswered(
+                        quizState.handleQuestionAnswered(
                           index,
                           isCorrect,
                           answer,
                           evaluation,
-                          skill
+                          skill,
+                          paragraphs.length
                         )
                       }
                       onNext={handleNext}
@@ -409,14 +238,17 @@ export default function Home() {
           {/* Progress Indicators */}
           <div className="flex flex-col items-center space-y-3 py-2">
             {paragraphs.map((_, index) => {
-              const isAnswered = answeredSections.has(index);
-              const isCorrect = sectionCorrectness.get(index);
+              const isAnswered = quizState.answeredSections.has(index);
+              const isCorrect = quizState.sectionCorrectness.get(index);
+              // Only allow navigation to answered sections (green or red dots)
+              const canNavigate = isAnswered;
 
               return (
                 <button
                   key={index}
-                  onClick={() => scrollToParagraph(index)}
-                  className="group relative flex items-center"
+                  onClick={() => canNavigate && scrollToParagraph(index)}
+                  disabled={!canNavigate}
+                  className={`group relative flex items-center ${!canNavigate ? 'cursor-not-allowed' : ''}`}
                   aria-label={`Go to section ${index + 1}`}
                 >
                   {/* Dot */}

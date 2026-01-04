@@ -4,7 +4,7 @@
 export type ComprehensionSkill = "Understanding" | "Reasoning" | "Application";
 
 // Difficulty levels for passage generation
-export type DifficultyLevel = "easier" | "same" | "harder";
+export type DifficultyLevel = "beginner" | "intermediate" | "advanced";
 
 export interface GenerateQuestionRequest {
   paragraph: string;

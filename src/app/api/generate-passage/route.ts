@@ -4,6 +4,8 @@ import type {
   GeneratePassageRequest,
   GeneratePassageResponse,
 } from "@/types/api";
+import { API_CONFIG } from "@/config/api";
+import { LEARNING_THRESHOLDS, DIFFICULTY_METADATA } from "@/config/constants";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -14,32 +16,32 @@ export async function POST(req: Request) {
     const body = (await req.json()) as GeneratePassageRequest;
     const { difficulty, referenceLength = 1000, skillStats } = body;
 
-    if (!difficulty || !["easier", "same", "harder"].includes(difficulty)) {
+    if (!difficulty || !["beginner", "intermediate", "advanced"].includes(difficulty)) {
       return NextResponse.json(
         { error: "Invalid difficulty level" },
         { status: 400 }
       );
     }
 
-    // Define difficulty-specific prompts
+    // Define difficulty-specific prompts using centralized metadata
     const difficultyGuidelines = {
-      easier: {
+      beginner: {
         vocabulary: "Use simple, common vocabulary suitable for ages 8-10. Avoid complex or technical terms.",
         sentences: "Use shorter sentences (10-15 words average) with simple structure.",
         concepts: "Focus on concrete, familiar concepts with straightforward explanations.",
-        gradeLevel: "4th-5th grade reading level",
+        gradeLevel: DIFFICULTY_METADATA.beginner.readingLevel,
       },
-      same: {
+      intermediate: {
         vocabulary: "Use age-appropriate vocabulary for ages 10-12. Include some challenging words with context clues.",
         sentences: "Use varied sentence structures with moderate complexity (15-20 words average).",
         concepts: "Include both concrete and some abstract concepts with clear explanations.",
-        gradeLevel: "6th-7th grade reading level",
+        gradeLevel: DIFFICULTY_METADATA.intermediate.readingLevel,
       },
-      harder: {
+      advanced: {
         vocabulary: "Use advanced vocabulary suitable for ages 12-14. Include technical or domain-specific terms.",
         sentences: "Use complex sentences with varied structures (20+ words average).",
         concepts: "Explore abstract concepts, cause-and-effect relationships, and nuanced ideas.",
-        gradeLevel: "8th-9th grade reading level",
+        gradeLevel: DIFFICULTY_METADATA.advanced.readingLevel,
       },
     };
 
@@ -58,7 +60,7 @@ export async function POST(req: Request) {
           untestedSkills.push(skill);
         } else {
           const percentage = (stats.correct / stats.tested) * 100;
-          if (percentage < 70) {
+          if (percentage < LEARNING_THRESHOLDS.skillWeaknessPercentage * 100) {
             weakSkills.push(skill);
           }
         }
@@ -107,7 +109,7 @@ FORMATTING:
 The passage should be factual, educational, and appropriate for comprehension question generation.${adaptiveGuidance}`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: API_CONFIG.openai.model,
       messages: [
         {
           role: "system",
@@ -119,7 +121,7 @@ The passage should be factual, educational, and appropriate for comprehension qu
         },
       ],
       temperature: 0.8, // Higher creativity for varied passages
-      max_tokens: 1500,
+      max_tokens: API_CONFIG.openai.maxTokens.passage,
       response_format: { type: "json_object" },
     });
 
