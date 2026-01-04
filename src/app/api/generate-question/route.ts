@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate question using OpenAI
+    // Generate question using OpenAI with skill classification
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -44,16 +44,24 @@ export async function POST(request: NextRequest) {
 
 Your task is to generate ONE high-quality comprehension question based on a specific section of a passage.
 
+Skill Categories:
+1. Understanding - Questions about main ideas, vocabulary in context, literal comprehension
+2. Reasoning - Questions about inference, cause and effect, author's purpose, comparisons
+3. Application - Questions about applying concepts, making predictions, connecting to real world
+
 Guidelines:
 - Focus on understanding and inference, NOT simple factual recall
 - Ask questions that require thinking about meaning, implications, or connections
 - Questions should test genuine comprehension, not memory
 - Keep questions clear and appropriate for children
 - The question should be answerable in 1-2 sentences
-- Do NOT ask "What does X mean?" or "Define Y"
-- DO ask about main ideas, author's purpose, cause and effect, comparisons, or inference
+- Vary the skill type to ensure balanced assessment
 
-Return ONLY the question text, nothing else.`,
+Return a JSON object with:
+{
+  "question": "the question text",
+  "skill": "Understanding" | "Reasoning" | "Application"
+}`,
         },
         {
           role: "user",
@@ -65,20 +73,39 @@ ${sanitizedPassage || sanitizedParagraph}
 Current Section:
 ${sanitizedParagraph}
 
-Generate ONE comprehension question for this specific section that tests understanding or inference.`,
+Generate ONE comprehension question for this specific section that tests understanding, reasoning, or application.`,
         },
       ],
       temperature: 0.7,
-      max_tokens: 150,
+      max_tokens: 200,
+      response_format: { type: "json_object" },
     });
 
-    const question = completion.choices[0]?.message?.content?.trim();
+    const responseText = completion.choices[0]?.message?.content?.trim();
 
-    if (!question) {
+    if (!responseText) {
       throw new Error("Failed to generate question");
     }
 
-    return NextResponse.json({ question });
+    // Parse the JSON response
+    const parsed = JSON.parse(responseText);
+    const question = parsed.question;
+    const skill = parsed.skill as "Understanding" | "Reasoning" | "Application";
+
+    // Map skill to soft prompt
+    const softPromptMap = {
+      Understanding: "Reflect",
+      Reasoning: "Think Deeper",
+      Application: "Apply What You've Read",
+    };
+
+    const softPrompt = softPromptMap[skill];
+
+    if (!question || !skill) {
+      throw new Error("Invalid question format");
+    }
+
+    return NextResponse.json({ question, skill, softPrompt });
   } catch (error) {
     console.error("Error generating question:", error);
 
