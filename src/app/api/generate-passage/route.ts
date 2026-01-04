@@ -12,7 +12,7 @@ const openai = new OpenAI({
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as GeneratePassageRequest;
-    const { difficulty, referenceLength = 1000 } = body;
+    const { difficulty, referenceLength = 1000, skillStats } = body;
 
     if (!difficulty || !["easier", "same", "harder"].includes(difficulty)) {
       return NextResponse.json(
@@ -46,6 +46,36 @@ export async function POST(req: Request) {
     const guidelines = difficultyGuidelines[difficulty];
     const targetWordCount = Math.floor(referenceLength / 5); // rough word count estimate
 
+    // Build adaptive learning guidance based on skill stats
+    let adaptiveGuidance = "";
+    if (skillStats) {
+      const weakSkills: string[] = [];
+      const untestedSkills: string[] = [];
+
+      (Object.keys(skillStats) as Array<keyof typeof skillStats>).forEach((skill) => {
+        const stats = skillStats[skill];
+        if (stats.tested === 0) {
+          untestedSkills.push(skill);
+        } else {
+          const percentage = (stats.correct / stats.tested) * 100;
+          if (percentage < 70) {
+            weakSkills.push(skill);
+          }
+        }
+      });
+
+      if (weakSkills.length > 0 || untestedSkills.length > 0) {
+        adaptiveGuidance = "\n\nADAPTIVE LEARNING FOCUS:\n";
+        if (weakSkills.length > 0) {
+          adaptiveGuidance += `- Student needs practice with: ${weakSkills.join(", ")}\n`;
+        }
+        if (untestedSkills.length > 0) {
+          adaptiveGuidance += `- Not yet tested: ${untestedSkills.join(", ")}\n`;
+        }
+        adaptiveGuidance += "- Create a passage that naturally supports generating questions for these skills.";
+      }
+    }
+
     const systemPrompt = `You are an expert educational content creator specializing in creating engaging, factual reading passages for children.
 
 Create a reading comprehension passage that meets these criteria:
@@ -74,7 +104,7 @@ FORMATTING:
 - Do not include any markdown formatting
 - Do not number the paragraphs
 
-The passage should be factual, educational, and appropriate for comprehension question generation.`;
+The passage should be factual, educational, and appropriate for comprehension question generation.${adaptiveGuidance}`;
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",

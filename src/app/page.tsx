@@ -19,6 +19,7 @@ import type {
   ComprehensionSkill,
   DifficultyLevel,
   GeneratePassageResponse,
+  SkillStats,
 } from "@/types/api";
 
 export default function Home() {
@@ -64,6 +65,36 @@ export default function Home() {
   const [sectionCorrectness, setSectionCorrectness] = useState<
     Map<number, boolean>
   >(new Map());
+
+  // Calculate prioritized skills based on current performance
+  const getPrioritizedSkills = (): ComprehensionSkill[] => {
+    if (answeredQuestions.length === 0) {
+      return []; // No data yet, let AI choose naturally
+    }
+
+    const stats = calculateSkillStats();
+    const priorities: ComprehensionSkill[] = [];
+
+    // Add untested skills first (highest priority)
+    (Object.keys(stats) as ComprehensionSkill[]).forEach((skill) => {
+      if (stats[skill].tested === 0) {
+        priorities.push(skill);
+      }
+    });
+
+    // Add weak skills (< 70% correct)
+    (Object.keys(stats) as ComprehensionSkill[]).forEach((skill) => {
+      const skillStat = stats[skill];
+      if (skillStat.tested > 0) {
+        const percentage = (skillStat.correct / skillStat.tested) * 100;
+        if (percentage < 70) {
+          priorities.push(skill);
+        }
+      }
+    });
+
+    return priorities;
+  };
 
   const scrollToParagraph = (index: number) => {
     setCurrentParagraph(index);
@@ -160,10 +191,32 @@ export default function Home() {
     resetQuizState();
   };
 
+  const calculateSkillStats = (): SkillStats => {
+    // Initialize stats for all three skills
+    const stats: SkillStats = {
+      Understanding: { tested: 0, correct: 0 },
+      Reasoning: { tested: 0, correct: 0 },
+      Application: { tested: 0, correct: 0 },
+    };
+
+    // Aggregate answered questions by skill
+    answeredQuestions.forEach((q) => {
+      stats[q.skill].tested++;
+      if (q.correct) {
+        stats[q.skill].correct++;
+      }
+    });
+
+    return stats;
+  };
+
   const handleTryNewPassage = async (difficulty: DifficultyLevel) => {
     setIsGeneratingPassage(true);
 
     try {
+      // Calculate skill stats for adaptive learning
+      const skillStats = calculateSkillStats();
+
       const response = await fetch("/api/generate-passage", {
         method: "POST",
         headers: {
@@ -172,6 +225,7 @@ export default function Home() {
         body: JSON.stringify({
           difficulty,
           referenceLength: currentPassage.content.length,
+          skillStats,
         }),
       });
 
@@ -207,20 +261,20 @@ export default function Home() {
     <div className="relative min-h-screen bg-stone-50">
       {/* Header */}
       <header className="sticky top-0 z-10 border-b border-stone-200 bg-white/90 backdrop-blur-sm">
-        <div className="mx-auto max-w-4xl px-6 py-6">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-500">
-                <BookOpen className="h-6 w-6 text-white" strokeWidth={2} />
+        <div className="mx-auto max-w-4xl px-4 py-4 sm:px-6 sm:py-6">
+          <div className="flex items-center justify-between gap-2 sm:gap-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-teal-500">
+                <BookOpen className="h-5 w-5 sm:h-6 sm:w-6 text-white" strokeWidth={2} />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-800 sm:text-2xl md:text-3xl">
+                <h1 className="text-lg font-bold text-gray-800 sm:text-2xl md:text-3xl">
                   {currentPassage.title}
                 </h1>
                 {/* View Full Passage Button */}
                 <button
                   onClick={() => setIsModalOpen(true)}
-                  className="mt-2 flex items-center gap-2 rounded-lg border-2 border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-semibold text-blue-600 transition-colors hover:bg-blue-100 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  className="mt-1.5 sm:mt-2 flex items-center gap-1.5 sm:gap-2 rounded-lg border-2 border-blue-200 bg-blue-50 px-2.5 py-1 sm:px-3 sm:py-1.5 text-xs sm:text-sm font-semibold text-blue-600 transition-colors hover:bg-blue-100 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                   aria-label="View full passage"
                 >
                   <svg
@@ -249,9 +303,9 @@ export default function Home() {
 
             {/* Score Display */}
             {!showCompletion && (
-              <div className="rounded-lg bg-blue-50 px-4 py-2.5">
-                <p className="text-sm font-semibold text-blue-600">
-                  Score: {correctAnswers} / {paragraphs.length}
+              <div className="rounded-lg bg-blue-50 px-2.5 py-1.5 sm:px-4 sm:py-2.5">
+                <p className="text-xs sm:text-sm font-semibold text-blue-600">
+                  {correctAnswers} / {paragraphs.length}
                 </p>
               </div>
             )}
@@ -268,7 +322,7 @@ export default function Home() {
       />
 
       {/* Main Content */}
-      <main className="mx-auto max-w-4xl px-6 py-12 lg:px-12">
+      <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-12 lg:px-12 pb-24 lg:pb-12">
         {showCompletion ? (
           <CompletionScreen
             correctAnswers={correctAnswers}
@@ -305,6 +359,7 @@ export default function Home() {
                       cachedSkill={cachedQuestions.get(index)?.skill}
                       cachedAnswerData={cachedAnswers.get(index)}
                       isLastSection={index === paragraphs.length - 1}
+                      prioritizeSkills={getPrioritizedSkills()}
                       onQuestionGenerated={(question, skill) =>
                         handleQuestionGenerated(index, question, skill)
                       }
@@ -415,19 +470,19 @@ export default function Home() {
       </aside>
 
       {/* Mobile Navigation */}
-      <div className="fixed bottom-6 left-1/2 z-20 flex -translate-x-1/2 items-center gap-4 lg:hidden">
+      <div className="fixed bottom-4 left-1/2 z-20 flex -translate-x-1/2 items-center gap-3 lg:hidden">
         <button
           onClick={handleBack}
           disabled={currentParagraph === 0}
-          className={`flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-all duration-200 ${
+          className={`flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-full shadow-lg transition-all duration-200 ${
             currentParagraph === 0
               ? "cursor-not-allowed bg-stone-200"
-              : "bg-white hover:scale-110 hover:bg-blue-600"
+              : "bg-white active:scale-95 hover:bg-blue-600"
           }`}
           aria-label="Previous section"
         >
           <ChevronUp
-            className={`h-7 w-7 ${
+            className={`h-6 w-6 sm:h-7 sm:w-7 ${
               currentParagraph === 0
                 ? "text-stone-400"
                 : "text-gray-800"
@@ -447,16 +502,16 @@ export default function Home() {
             currentParagraph === paragraphs.length - 1 ||
             !currentSectionAnswered
           }
-          className={`flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-all duration-200 ${
+          className={`flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-full shadow-lg transition-all duration-200 ${
             currentParagraph === paragraphs.length - 1 ||
             !currentSectionAnswered
               ? "cursor-not-allowed bg-stone-200"
-              : "bg-white hover:scale-110 hover:bg-blue-600"
+              : "bg-white active:scale-95 hover:bg-blue-600"
           }`}
           aria-label="Next section"
         >
           <ChevronDown
-            className={`h-7 w-7 ${
+            className={`h-6 w-6 sm:h-7 sm:w-7 ${
               currentParagraph === paragraphs.length - 1 ||
               !currentSectionAnswered
                 ? "text-stone-400"

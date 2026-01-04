@@ -28,13 +28,13 @@ export const ReadingCard = forwardRef<HTMLDivElement, ReadingCardProps>(
           isActive ? "opacity-100" : "opacity-40"
         }`}
       >
-        <div className={`mx-auto max-w-3xl rounded-2xl p-8 shadow-sm ring-1 sm:p-10 ${getBackgroundColor()} ${getRingColor()}`}>
-          <div className="mb-4 inline-block rounded-md bg-blue-50 px-3 py-1">
-            <span className="text-sm font-semibold text-blue-600">
+        <div className={`mx-auto max-w-3xl rounded-xl sm:rounded-2xl p-5 sm:p-8 lg:p-10 shadow-sm ring-1 ${getBackgroundColor()} ${getRingColor()}`}>
+          <div className="mb-3 sm:mb-4 inline-block rounded-md bg-blue-50 px-2.5 py-0.5 sm:px-3 sm:py-1">
+            <span className="text-xs sm:text-sm font-semibold text-blue-600">
               Section {sectionNumber}
             </span>
           </div>
-          <p className="text-lg leading-relaxed text-gray-800 sm:text-xl">
+          <p className="text-base leading-relaxed text-gray-800 sm:text-lg lg:text-xl">
             {paragraph}
           </p>
         </div>

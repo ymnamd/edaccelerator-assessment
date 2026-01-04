@@ -49,12 +49,12 @@ export function PassageModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="sticky top-0 z-10 border-b border-stone-200 bg-white px-6 py-4 sm:px-8 sm:py-5">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-500">
+        <div className="sticky top-0 z-10 border-b border-stone-200 bg-white px-4 py-3 sm:px-6 sm:py-4 lg:px-8 lg:py-5">
+          <div className="flex items-center justify-between gap-2 sm:gap-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-teal-500">
                 <svg
-                  className="h-6 w-6 text-white"
+                  className="h-5 w-5 sm:h-6 sm:w-6 text-white"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -67,17 +67,17 @@ export function PassageModal({
                   />
                 </svg>
               </div>
-              <h2 className="text-xl font-bold text-gray-800 sm:text-2xl">
+              <h2 className="text-base font-bold text-gray-800 sm:text-xl lg:text-2xl">
                 {title}
               </h2>
             </div>
             <button
               onClick={onClose}
-              className="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full transition-colors hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-blue-500 flex-shrink-0"
               aria-label="Close modal"
             >
               <svg
-                className="h-6 w-6 text-gray-600"
+                className="h-5 w-5 sm:h-6 sm:w-6 text-gray-600"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -94,16 +94,16 @@ export function PassageModal({
         </div>
 
         {/* Content */}
-        <div className="overflow-y-auto p-6 sm:p-8" style={{ maxHeight: "calc(85vh - 80px)" }}>
-          <div className="space-y-6">
+        <div className="overflow-y-auto p-4 sm:p-6 lg:p-8" style={{ maxHeight: "calc(85vh - 80px)" }}>
+          <div className="space-y-5 sm:space-y-6">
             {paragraphs.map((paragraph, index) => (
               <div key={index} className="group">
-                <div className="mb-2 inline-block rounded-md bg-blue-50 px-3 py-1">
-                  <span className="text-sm font-semibold text-blue-600">
+                <div className="mb-2 inline-block rounded-md bg-blue-50 px-2.5 py-0.5 sm:px-3 sm:py-1">
+                  <span className="text-xs sm:text-sm font-semibold text-blue-600">
                     Section {index + 1}
                   </span>
                 </div>
-                <p className="text-lg leading-relaxed text-gray-800">
+                <p className="text-base leading-relaxed text-gray-800 sm:text-lg">
                   {paragraph}
                 </p>
               </div>

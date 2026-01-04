@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
   try {
     // Parse and validate request body
     const body = await request.json();
-    const { paragraph, fullPassage, passageTitle } = body;
+    const { paragraph, fullPassage, passageTitle, prioritizeSkills } = body;
 
     // Validate required inputs
     if (!paragraph || typeof paragraph !== "string") {
@@ -34,6 +34,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Build adaptive learning guidance
+    let skillGuidance = "";
+    if (prioritizeSkills && prioritizeSkills.length > 0) {
+      skillGuidance = `\n\nADAPTIVE LEARNING: The student needs practice with these skills: ${prioritizeSkills.join(", ")}. Strongly prefer generating a question for one of these skills if the content allows.`;
+    }
+
     // Generate question using OpenAI with skill classification
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -55,7 +61,7 @@ Guidelines:
 - Questions should test genuine comprehension, not memory
 - Keep questions clear and appropriate for children
 - The question should be answerable in 1-2 sentences
-- Vary the skill type to ensure balanced assessment
+- Vary the skill type to ensure balanced assessment${skillGuidance}
 
 Return a JSON object with:
 {

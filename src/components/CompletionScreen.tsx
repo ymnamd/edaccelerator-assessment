@@ -76,42 +76,42 @@ export function CompletionScreen({
 
   return (
     <div className="mx-auto max-w-3xl">
-      <div className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-stone-200 sm:p-12">
+      <div className="rounded-xl sm:rounded-2xl bg-white p-5 sm:p-8 lg:p-12 shadow-sm ring-1 ring-stone-200">
         {/* Trophy Icon */}
-        <div className="mb-6 flex justify-center">
-          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-teal-400 to-blue-500">
-            <Trophy className="h-10 w-10 text-white" strokeWidth={2} />
+        <div className="mb-5 sm:mb-6 flex justify-center">
+          <div className="flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-full bg-gradient-to-br from-teal-400 to-blue-500">
+            <Trophy className="h-8 w-8 sm:h-10 sm:w-10 text-white" strokeWidth={2} />
           </div>
         </div>
 
         {/* Title */}
-        <h2 className="mb-4 text-center text-3xl font-bold text-gray-800 sm:text-4xl">
+        <h2 className="mb-4 text-center text-2xl font-bold text-gray-800 sm:text-3xl lg:text-4xl">
           Passage Complete!
         </h2>
 
         {/* Score Display */}
-        <div className="mb-6 text-center">
-          <div className="mb-2 inline-block rounded-xl bg-blue-50 px-8 py-4">
-            <p className="text-5xl font-bold text-blue-600 sm:text-6xl">
+        <div className="mb-5 sm:mb-6 text-center">
+          <div className="mb-2 inline-block rounded-xl bg-blue-50 px-6 py-3 sm:px-8 sm:py-4">
+            <p className="text-4xl font-bold text-blue-600 sm:text-5xl lg:text-6xl">
               {correctAnswers} / {totalQuestions}
             </p>
           </div>
-          <p className="text-lg text-gray-600 sm:text-xl">
+          <p className="text-base text-gray-600 sm:text-lg lg:text-xl">
             {percentage}% correct
           </p>
         </div>
 
         {/* Encouraging Message */}
-        <div className="mb-8 rounded-lg bg-teal-50 p-6 text-center">
-          <p className="text-lg font-medium text-teal-800 sm:text-xl">
+        <div className="mb-6 sm:mb-8 rounded-lg bg-teal-50 p-4 sm:p-6 text-center">
+          <p className="text-base font-medium text-teal-800 sm:text-lg lg:text-xl">
             {getMessage()}
           </p>
         </div>
 
         {/* Skills Rubric - Only show skills that were tested */}
         {answeredQuestions.length > 0 && (
-          <div className="mb-8 space-y-3">
-            <h3 className="text-center text-lg font-semibold text-gray-800">
+          <div className="mb-6 sm:mb-8 space-y-2 sm:space-y-3">
+            <h3 className="text-center text-base sm:text-lg font-semibold text-gray-800">
               Reading Skills You Practiced
             </h3>
             <div className="space-y-2">
@@ -225,21 +225,21 @@ export function CompletionScreen({
         <div className="my-8 border-t border-stone-200" />
 
         {/* Try Another Passage Section */}
-        <div className="space-y-4">
-          <h3 className="text-center text-lg font-semibold text-gray-800">
+        <div className="space-y-3 sm:space-y-4">
+          <h3 className="text-center text-base sm:text-lg font-semibold text-gray-800">
             Want to try another passage?
           </h3>
-          <p className="text-center text-sm text-gray-600">
+          <p className="text-center text-xs sm:text-sm text-gray-600">
             Choose a difficulty level:
           </p>
 
           {/* Difficulty Buttons */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2.5 sm:gap-3 sm:grid-cols-3">
             {/* Easier Button */}
             <button
               onClick={() => onTryNewPassage("easier")}
               disabled={isGeneratingPassage}
-              className={`group relative flex flex-col items-center gap-2 rounded-lg border-2 p-4 font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+              className={`group relative flex flex-col items-center gap-1.5 sm:gap-2 rounded-lg border-2 p-3 sm:p-4 text-sm sm:text-base font-semibold transition-all active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                 recommendedDifficulty === "easier"
                   ? "border-blue-500 bg-blue-50 text-blue-700 hover:bg-blue-100"
                   : "border-stone-300 bg-white text-gray-700 hover:border-blue-400 hover:bg-blue-50"
@@ -258,7 +258,7 @@ export function CompletionScreen({
             <button
               onClick={() => onTryNewPassage("same")}
               disabled={isGeneratingPassage}
-              className={`group relative flex flex-col items-center gap-2 rounded-lg border-2 p-4 font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+              className={`group relative flex flex-col items-center gap-1.5 sm:gap-2 rounded-lg border-2 p-3 sm:p-4 text-sm sm:text-base font-semibold transition-all active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                 recommendedDifficulty === "same"
                   ? "border-blue-500 bg-blue-50 text-blue-700 hover:bg-blue-100"
                   : "border-stone-300 bg-white text-gray-700 hover:border-blue-400 hover:bg-blue-50"
@@ -277,7 +277,7 @@ export function CompletionScreen({
             <button
               onClick={() => onTryNewPassage("harder")}
               disabled={isGeneratingPassage}
-              className={`group relative flex flex-col items-center gap-2 rounded-lg border-2 p-4 font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+              className={`group relative flex flex-col items-center gap-1.5 sm:gap-2 rounded-lg border-2 p-3 sm:p-4 text-sm sm:text-base font-semibold transition-all active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                 recommendedDifficulty === "harder"
                   ? "border-blue-500 bg-blue-50 text-blue-700 hover:bg-blue-100"
                   : "border-stone-300 bg-white text-gray-700 hover:border-blue-400 hover:bg-blue-50"

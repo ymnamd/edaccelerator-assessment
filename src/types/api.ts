@@ -10,6 +10,7 @@ export interface GenerateQuestionRequest {
   paragraph: string;
   fullPassage?: string;
   passageTitle?: string;
+  prioritizeSkills?: ComprehensionSkill[]; // skills to focus on for adaptive learning
 }
 
 export interface GenerateQuestionResponse {
@@ -42,10 +43,18 @@ export interface AnsweredQuestion {
   correct: boolean;
 }
 
+// Skill performance tracking for adaptive learning
+export interface SkillStats {
+  Understanding: { tested: number; correct: number };
+  Reasoning: { tested: number; correct: number };
+  Application: { tested: number; correct: number };
+}
+
 // Passage generation interfaces
 export interface GeneratePassageRequest {
   difficulty: DifficultyLevel;
   referenceLength?: number; // approximate length to match
+  skillStats?: SkillStats; // previous performance to guide question generation
 }
 
 export interface GeneratePassageResponse {
